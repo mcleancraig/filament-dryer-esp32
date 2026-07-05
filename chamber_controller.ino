@@ -273,7 +273,23 @@ const char SAVED_HTML[] PROGMEM = R"rawhtml(
 // =============================================================================
 // NVS SAVING & LOADING
 // =============================================================================
+const char* NVS_MAGIC_KEY   = "magic";
+const char* NVS_MAGIC_VALUE = "dryer-1";
+
 void loadConfiguration() {
+  preferences.begin(NVS_NAMESPACE, true);
+  String magic = preferences.getString(NVS_MAGIC_KEY, "");
+  preferences.end();
+
+  if (magic.length() > 0 && magic != NVS_MAGIC_VALUE) {
+    Serial.printf("Config    — NVS magic mismatch ('%s'), clearing NVS...\n", magic.c_str());
+    preferences.begin(NVS_NAMESPACE, false);
+    preferences.clear();
+    preferences.end();
+    isProvisioned = false;
+    return;
+  }
+
   preferences.begin(NVS_NAMESPACE, true);
   isProvisioned = preferences.getBool("provisioned", false);
   
@@ -293,10 +309,19 @@ void loadConfiguration() {
     timerDurationMin = preferences.getInt("lastTimer", 240);
   }
   preferences.end();
+
+  // Passive migration: write magic key so future boots pass strict check
+  if (isProvisioned && magic.length() == 0) {
+    Serial.println("Config    — NVS magic absent, writing (passive migration)...");
+    preferences.begin(NVS_NAMESPACE, false);
+    preferences.putString(NVS_MAGIC_KEY, NVS_MAGIC_VALUE);
+    preferences.end();
+  }
 }
 
 void saveConfiguration(const DeviceConfig &newCfg) {
   preferences.begin(NVS_NAMESPACE, false);
+  preferences.putString(NVS_MAGIC_KEY, NVS_MAGIC_VALUE);
   preferences.putInt("unitNumber", newCfg.unitNumber);
   preferences.putString("wifiSSID", newCfg.wifiSSID);
   preferences.putString("wifiPassword", newCfg.wifiPassword);
