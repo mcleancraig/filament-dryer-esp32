@@ -44,6 +44,9 @@
 // =============================================================================
 #define TEMP_HYSTERESIS    0.5f  // Hysteresis range for temperature control (°C)
 #define HUMID_HYSTERESIS   3.0f  // Hysteresis range for humidity control (% RH) to avoid rapid cycling
+#define MAX_HEATER_EXHAUST_TEMP 70.0f // Max allowed heater exhaust temperature (°C) before safety override limits power
+#define TARGET_TEMP_HOLD   25.0f // Default fallback holding temperature (°C) during maintenance phase
+
 
 // PWM speed limits (0 to 255)
 #define FAN_SPEED_ACTIVE   255   // Fan duty cycle (100%) during active drying

@@ -452,6 +452,20 @@ void publishMqttDiscovery() {
     devUid, STATE_TOPIC, devInfo);
   mqttClient.publish(discTopic, payload, true);
 
+  // 1b. Heater Exhaust Temperature Sensor Discovery
+  if (hasHeaterExhaustSensor) {
+    snprintf(discTopic, sizeof(discTopic), "homeassistant/sensor/%s/%s_exhaust_temp/config", devUid, devUid);
+    snprintf(payload, sizeof(payload), 
+      "{\"name\":\"Heater Exhaust Temp\",\"unique_id\":\"%s_exhaust_temp\",\"state_topic\":\"%s\",\"value_template\":\"{{ value_json.heater_exhaust_temp }}\",\"device_class\":\"temperature\",\"unit_of_measurement\":\"°C\",\"icon\":\"mdi:fire\",%s}",
+      devUid, STATE_TOPIC, devInfo);
+    mqttClient.publish(discTopic, payload, true);
+  } else {
+    // Clean up entity from HA if secondary sensor is absent
+    snprintf(discTopic, sizeof(discTopic), "homeassistant/sensor/%s/%s_exhaust_temp/config", devUid, devUid);
+    mqttClient.publish(discTopic, "", true);
+  }
+
+
   // 2. Humidity Sensor Discovery
   snprintf(discTopic, sizeof(discTopic), "homeassistant/sensor/%s/%s_humid/config", devUid, devUid);
   snprintf(payload, sizeof(payload), 
@@ -700,6 +714,8 @@ void publishTelemetry(const SensorData &env) {
   // Clean Sensor Telemetry
   doc["temperature"] = env.isValid ? (double)env.temperature : 0.0;
   doc["humidity"] = env.isValid ? (double)env.humidity : 0.0;
+  doc["heater_exhaust_temp"] = env.heaterExhaustValid ? (double)env.heaterExhaustTemp : 0.0;
+  doc["exhaust_sensor_present"] = hasHeaterExhaustSensor;
 
   // Active drying metrics
   doc["is_active"] = isSystemActive;
@@ -892,6 +908,15 @@ void loop() {
       } else {
         currentHeaterPWM = (int)((tempError / 3.0f) * HEATER_MAX_DUTY);
       }
+
+      // Safe control loop limit based on heater exhaust safety sensor
+      if (env.heaterExhaustValid && env.heaterExhaustTemp > MAX_HEATER_EXHAUST_TEMP) {
+        currentHeaterPWM = 0;
+        currentFanPWM = 255; // Force fan to 100% to cool down the heater exhaust
+        Serial.printf("[WARNING] Heater exhaust temperature (%.1fC) exceeded safety threshold (%.1fC)! Heater disabled, fan forced to 100%%.\n", 
+                      env.heaterExhaustTemp, MAX_HEATER_EXHAUST_TEMP);
+      }
+
 
       // 3. THERMAL RUNAWAY PROTECTION (Checks after 5 mins of heating)
       if (safetyTimerArmed) {
