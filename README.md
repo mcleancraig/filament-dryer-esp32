@@ -1,6 +1,6 @@
 # IoT ESP32-C6-Zero Smart Filament Dryer Controller
 
-An intelligent, smart-home enabled environmental controller for 3D printing filament drying chambers. Built for the **Waveshare ESP32-C6-Zero** using **IRLZ44N Logic-Level MOSFETs**, this firmware provides non-blocking temperature regulation, smart humidity-targeted cycles, visual captive portal provisioning, and complete **Home Assistant MQTT Auto-Discovery**. It supports **Sensirion SHT30D/SHT31** or **Bosch BME280** sensors via I2C.
+An intelligent, smart-home enabled environmental controller for 3D printing filament drying chambers. Built for the **Waveshare ESP32-C6-Zero** using **IRLZ44N Logic-Level MOSFETs**, this firmware provides non-blocking temperature regulation, smart humidity-targeted cycles, visual captive portal provisioning, and complete **Home Assistant MQTT Auto-Discovery**. It supports **Sensirion SHT30D/SHT31** sensors via I2C.
 
 ---
 
@@ -59,8 +59,8 @@ The IRLZ44N pinout, looking at the labeled front face: **Gate (Pin 1) - Drain (P
 ### 1. Pin Map
 | Component | Pin Function | ESP32-C6 GPIO | Description |
 | :--- | :--- | :--- | :--- |
-| **I2C SDA** | Sensor Data | **GPIO 22** | Connect to SHT30D/SHT31/BME280/BMP280 SDA |
-| **I2C SCL** | Sensor Clock | **GPIO 23** | Connect to SHT30D/SHT31/BME280/BMP280 SCL |
+| **I2C SDA** | Sensor Data | **GPIO 22** | Connect to SHT30D/SHT31 SDA |
+| **I2C SCL** | Sensor Clock | **GPIO 23** | Connect to SHT30D/SHT31 SCL |
 | **DHT Data** | Digital Sensor | **GPIO 14** | Connect to DHT22 Data (if used) |
 | **Heater Gate** | PWM Output | **GPIO 20** | Connect to Heater MOSFET Gate (via 100Ω) |
 | **Fan Gate** | PWM Output | **GPIO 21** | Connect to Fan MOSFET Gate (via 100Ω) |
@@ -81,8 +81,6 @@ Install the following libraries using the **Arduino Library Manager**:
 * `PubSubClient` (by Nick O'Leary)
 * `ArduinoJson` (by Benoit Blanchon)
 * `Adafruit SHT31 Library` (by Adafruit, for SHT30D/SHT31 setups)
-* `Adafruit BME280 Library` (by Adafruit, for BME280 setups)
-* `Adafruit BMP280 Library` (by Adafruit, for BMP280 setups)
 * `Adafruit Unified Sensor` (dependency)
 * `DHT sensor library` (by Adafruit, if using DHT22)
 
