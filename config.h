@@ -1,10 +1,13 @@
 /**
  * @file config.h
  * @brief Centralized configuration parameters for the ESP32-C6-Zero Chamber Controller.
+ * Extends the basic config to include NVS configuration parameters and default fallback values.
  */
 
 #ifndef CONFIG_H
 #define CONFIG_H
+
+#include <Arduino.h>
 
 // =============================================================================
 // 1. SENSOR CONFIGURATION MODE
@@ -30,13 +33,11 @@
 #define PIN_STATUS_LED    15  // Onboard status indicator LED (usually blue/green)
 
 // =============================================================================
-// 3. TARGET CONTROL PARAMETERS
+// 3. CAPTIVE PORTAL PROVISIONING SETTINGS
 // =============================================================================
-// Modify these to suit your specific container and materials (e.g., filament drying)
-
-#define TARGET_TEMP_HEAT  40.0f  // Target temperature (°C) during dehumidification phase
-#define TARGET_TEMP_HOLD  25.0f  // Target temperature (°C) during maintenance phase (drops heat)
-#define TARGET_HUMIDITY   20.0f  // Target relative humidity (% RH) to trigger maintenance mode
+#define AP_PASSWORD       "dryer123" // Password to connect to local DRYER-XXXXXX access point
+#define AP_TIMEOUT_MIN    5          // Captive portal times out and sleeps after 5 minutes if unconfigured
+#define NVS_NAMESPACE     "dryer-cfg" // Preferences namespace for NVS
 
 // =============================================================================
 // 4. CONTROL HYSTERESIS & PWM LIMITS
@@ -53,6 +54,18 @@
 // 5. SYSTEM SETTINGS
 // =============================================================================
 #define MEASURE_INTERVAL  2000   // Non-blocking sensor update interval (milliseconds)
+#define TELEMETRY_INTERVAL 5000  // Non-blocking MQTT publish interval (milliseconds)
 #define SERIAL_BAUD     115200   // Serial baud rate for USB debugging
+
+// Device configuration struct stored in NVS Preferences
+struct DeviceConfig {
+  int     unitNumber;
+  char    wifiSSID[64];
+  char    wifiPassword[64];
+  char    mqttBroker[64];
+  int     mqttPort;
+  char    mqttUser[32];
+  char    mqttPassword[64];
+};
 
 #endif // CONFIG_H

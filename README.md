@@ -1,49 +1,39 @@
-# ESP32-C6-Zero Chamber Temp & Humidity Controller
+# IoT ESP32-C6-Zero Smart Filament Dryer Controller
 
-This firmware controls a **12V Heating Pad** and a **5V Fan** using a **Waveshare ESP32-C6-Zero** and **IRLZ44N Logic-Level N-Channel MOSFETs** to dry and maintain a target humidity level inside a sealed chamber.
+An intelligent, smart-home enabled environmental controller for 3D printing filament drying chambers. Built for the **Waveshare ESP32-C6-Zero** using **IRLZ44N Logic-Level MOSFETs**, this firmware provides non-blocking temperature regulation, smart humidity-targeted cycles, visual captive portal provisioning, and complete **Home Assistant MQTT Auto-Discovery**.
 
 ---
 
-## 🛠️ Hardware Requirements & Recommended Setup
+## 🌟 Premium Features
 
-1. **Microcontroller**: [Waveshare ESP32-C6-Zero](https://www.waveshare.com/esp32-c6-zero.htm)
-2. **Loads**:
-   * 12V DC Heating Pad (Resistive)
-   * 5V DC Fan (Inductive)
-3. **Power Supply**:
-   * 12V DC power supply (capable of supplying the heater's current, e.g., 2A–3A).
-   * 12V-to-5V step-down buck converter (to power the 5V fan and the ESP32).
-4. **MOSFET Switches** (Qty: 2):
-   * [IRLZ44N N-channel Logic-Level MOSFETs](https://www.infineon.com/dgdl/Infineon-IRLZ44N-DataSheet-v01_01-EN.pdf?fileId=5546d462533600a4015356ec236b281c). *Must be the IRL series (logic-level), not IRF series, as IRF gates require 10V to fully open, whereas IRL opens fully at 3V–5V.*
-5. **Passive Components**:
-   * **100Ω Resistors** (Qty: 2): Gate current limiters (protects ESP32 GPIOs).
-   * **10kΩ Resistors** (Qty: 2): Gate pull-downs (keeps gates closed during boot/reset).
-   * **1N4007 Diodes** (Qty: 2): Flyback protection (crucial for the fan, highly recommended for the heater).
-6. **Sensor (Select One)**:
-   * **BME280** [Highly Recommended]: Measures both temp and humidity via I2C.
-   * **BMP280 + DHT22**: Use BMP280 for temp (I2C) and DHT22 for humidity (Digital pin).
-   * **DHT22 only**: Measures both temp and humidity via a single digital pin.
+1. **Smart Humidity-Targeted Drying**:
+   * **Active Drying (`STATE_HEATING_UP`)**: Actively runs the heater at the material's ideal drying temperature and spins the fan at 100%. This phase **continues indefinitely until your target humidity (default 15% RH) is reached**.
+   * **Maintenance Phase (`STATE_MAINTAINING`)**: Throttles the heater and fan down to low circulation speeds to conserve energy while keeping the spool dry and ready.
+2. **Material Preset Library**: Preconfigured drying parameters for standard filaments:
+   * **PLA** (45°C, 4 hours)
+   * **PETG** (55°C, 4 hours)
+   * **CoPE** (55°C, 4 hours)
+   * **ASA** (65°C, 6 hours)
+   * **ABS** (65°C, 6 hours)
+   * **TPU** (50°C, 4 hours)
+   * **Manual** (Fully customizable temp/humid/timer slider overrides in Home Assistant)
+3. **Provisioning Captive Portal**:
+   * If unconfigured, the device boots into Access Point (AP) mode as `DRYER-XXXXXX` (using the device's unique MAC) with the password `dryer123`.
+   * Accessing `http://192.168.4.1/` presents a responsive dark-mode portal to easily input WiFi, MQTT broker, and Unit Number details without changing code.
+4. **Home Assistant MQTT Auto-Discovery**:
+   * Automatically publishes discovery topics. The moment your device connects to your broker, it instantly registers in Home Assistant with a dashboard including:
+     * Sensors: Chamber Temp, Chamber Humidity, Time Remaining, and Status.
+     * Select Dropdown: Active Filament Preset.
+     * Switch: Dryer Power (ON/OFF).
+     * Sliders: Temperature Target, Humidity Target, and Session Timer overrides.
+5. **Advanced Hardware Protections**:
+   * **Heater Thermal Protection**: Shuts down the heater permanently if a MOSFET failure or thermistor detachment is detected (i.e. heater on but temp fails to rise by 2°C within 5 minutes).
+   * **Ventilation Purge Cycle**: Spins the fan to 100% for 30s every 10 minutes to expel moisture pocket boundary layers, maintaining maximum drying efficiency.
 
 ---
 
 ## 🔌 Connection & Wiring Guide
 
-### 1. Sensor Connection
-
-* **I2C Mode (BME280 or BMP280)**:
-  * **VCC** (Sensor) ➔ **3V3** (ESP32)
-  * **GND** (Sensor) ➔ **GND** (ESP32)
-  * **SDA** (Sensor) ➔ **GPIO 22** (ESP32)
-  * **SCL** (Sensor) ➔ **GPIO 23** (ESP32)
-  * *Note: Ensure your breakout board has built-in pull-up resistors on SDA/SCL. If not, add 4.7kΩ resistors from SDA and SCL to 3V3.*
-
-* **DHT22 (if used)**:
-  * **VCC** (DHT22) ➔ **3V3** (ESP32)
-  * **GND** (DHT22) ➔ **GND** (ESP32)
-  * **DATA** (DHT22) ➔ **GPIO 14** (ESP32)
-  * *Note: Place a 10kΩ pull-up resistor from the DATA line to VCC (3V3) if your module doesn't have one.*
-
-### 2. MOSFET Gate Drive Circuit (For BOTH Heater and Fan)
 The IRLZ44N pinout, looking at the labeled front face: **Gate (Pin 1) - Drain (Pin 2) - Source (Pin 3)**.
 
 ```text
@@ -66,80 +56,91 @@ The IRLZ44N pinout, looking at the labeled front face: **Gate (Pin 1) - Drain (P
   GND ➔ ➔ ➔ ➔ ➔ ➔ ➔ ➔ ➔ ➔ ➔ ➔ ➔ ➔ ➔ ─┴───────➔ [ Source (S) ]
 ```
 
-* **Heater MOSFET**:
-  * **Gate (G)** ➔ **GPIO 20** (via 100Ω gate resistor).
-  * **Drain (D)** ➔ **Negative (-) terminal** of the 12V Heating Pad.
-  * **Source (S)** ➔ **GND**.
-  * **Flyback Diode (1N4007)**: Cathode (stripe) to 12V+, Anode to MOSFET Drain.
-  * **Heating Pad Positive (+)** ➔ **12V DC Positive (+)**.
+### 1. Pin Map
+| Component | Pin Function | ESP32-C6 GPIO | Description |
+| :--- | :--- | :--- | :--- |
+| **I2C SDA** | Sensor Data | **GPIO 22** | Connect to BME280/BMP280 SDA |
+| **I2C SCL** | Sensor Clock | **GPIO 23** | Connect to BME280/BMP280 SCL |
+| **DHT Data** | Digital Sensor | **GPIO 14** | Connect to DHT22 Data (if used) |
+| **Heater Gate** | PWM Output | **GPIO 20** | Connect to Heater MOSFET Gate (via 100Ω) |
+| **Fan Gate** | PWM Output | **GPIO 21** | Connect to Fan MOSFET Gate (via 100Ω) |
+| **Status LED** | Onboard LED | **GPIO 15** | Visual flashing state indicators |
 
-* **Fan MOSFET**:
-  * **Gate (G)** ➔ **GPIO 21** (via 100Ω gate resistor).
-  * **Drain (D)** ➔ **Negative (-) terminal** of the 5V Fan.
-  * **Source (S)** ➔ **GND**.
-  * **Flyback Diode (1N4007)**: Cathode (stripe) to 5V+, Anode to MOSFET Drain.
-  * **Fan Positive (+)** ➔ **5V DC Positive (+)** (from the 5V buck converter).
+### 2. Assembly Rules
+* **MOSFET Source**: Connect Source (Pin 3) of both MOSFETs directly to your common DC **Ground**.
+* **Flyback Protection**: A **1N4007 diode** is **mandatory** in parallel with the 5V Fan (Cathode to 5V+, Anode to MOSFET Drain) to absorb high voltage induction spikes.
+* **Pull-Downs**: Place a **10kΩ resistor** from each MOSFET Gate to GND to prevent the heater/fan from randomly firing during ESP32 boot resets.
 
 ---
 
 ## 💾 Uploading and Library Setup
 
 ### 1. Required Libraries
-Install the following libraries using the **Arduino Library Manager** (Sketch ➔ Include Library ➔ Manage Libraries):
+Install the following libraries using the **Arduino Library Manager**:
 
-* **For BME280/BMP280**:
-  * `Adafruit BME280 Library` (by Adafruit)
-  * `Adafruit BMP280 Library` (by Adafruit)
-  * `Adafruit Unified Sensor` (dependency, automatically prompted)
-* **For DHT22**:
-  * `DHT sensor library` (by Adafruit)
+* `PubSubClient` (by Nick O'Leary)
+* `ArduinoJson` (by Benoit Blanchon)
+* `Adafruit BME280 Library` (by Adafruit)
+* `Adafruit BMP280 Library` (by Adafruit)
+* `Adafruit Unified Sensor` (dependency)
+* `DHT sensor library` (by Adafruit, if using DHT22)
 
-### 2. Configuration
-Open `config.h` and edit your settings:
-* Uncomment your sensor choice under Section 1 (e.g., `#define SENSOR_MODE_BME280`).
-* Set your target temperature and humidity thresholds (Sections 3 and 4).
-
-### 3. Flash Instructions
-1. Add the ESP32 board URL to Arduino IDE (File ➔ Preferences ➔ Additional Boards Manager URLs):
-   `https://espressif.github.io/arduino-esp32/package_esp32_index.json`
-2. Open **Boards Manager**, search for `esp32` by Espressif, and install version **3.x.x** (or latest).
-3. Select your board: **Tools ➔ Board ➔ ESP32C6 ➔ ESP32C6 Dev Module**.
-4. Set upload speed: **115200** or **921600** (depends on adapter).
-5. **Enter Download Mode on ESP32-C6-Zero**:
-   * Hold down the **BOOT** button.
+### 2. Compilation and Flashing
+1. Open the sketch in **Arduino IDE**.
+2. Select **Tools ➔ Board ➔ ESP32C6 ➔ ESP32C6 Dev Module**.
+3. Force ESP32-C6 into Download Mode:
+   * Press and hold the **BOOT** button on the ESP32-C6-Zero.
    * Press and release the **RESET** button.
    * Release the **BOOT** button.
-6. Click **Upload** in the Arduino IDE.
+4. Click **Upload** in the Arduino IDE.
 
 ---
 
-## 📈 System Operation & Telemetry
+## 🧭 Initial Provisioning
 
-Once booted, open the **Serial Monitor** at **115200 baud** to see real-time logs:
+1. Power on the device.
+2. Search for Wi-Fi networks on your phone or laptop.
+3. Connect to **`DRYER-XXXXXX`** using the password **`dryer123`**.
+4. Open your browser and navigate to **`http://192.168.4.1`**.
+5. Input your local Wi-Fi SSID, Password, and MQTT Broker details. Set your **Dryer Unit Number** (e.g. `1`).
+6. Click **Save & Connect**. The ESP32 will reboot, connect to your smart-home network, and auto-discover in Home Assistant!
 
-```text
-==============================================
-  ESP32-C6 Chamber Temp & Humidity Controller
-==============================================
+---
 
---- Initializing Sensors ---
-Initializing I2C (SDA Pin: 22, SCL Pin: 23)...
-Attempting to connect to BME280 sensor...
-[SUCCESS] BME280 found and ready.
-[SYSTEM] Hardware successfully initialized.
+## 📊 MQTT Topic Schema
 
-Telemetry -> Temp: 24.3 °C | Humid: 64.2 % RH | State: ACTIVE HEATING / DEHUMIDIFYING
-Control   -> Heater PWM: 255 (100%) | Fan PWM: 255 (100%)
+For Dryer Unit `#1` (dynamically updates based on configured Unit Number):
 
-Telemetry -> Temp: 38.2 °C | Humid: 42.1 % RH | State: ACTIVE HEATING / DEHUMIDIFYING
-Control   -> Heater PWM: 153 (60%) | Fan PWM: 255 (100%)
+| Topic | Publish/Subscribe | Payload | Description |
+| :--- | :---: | :--- | :--- |
+| `garden/dryer1/state` | **Publish (retained)** | JSON string | Telemetry, active targets, states |
+| `garden/dryer1/cmd/power` | **Subscribe** | `ON` or `OFF` | System power toggle |
+| `garden/dryer1/cmd/filament` | **Subscribe** | Preset name string | e.g., `PLA`, `ABS`, `TPU`, `Manual` |
+| `garden/dryer1/cmd/target_temp` | **Subscribe** | Float string (`20`–`75`) | Custom Temperature Override |
+| `garden/dryer1/cmd/target_humidity`| **Subscribe** | Float string (`5`–`50`) | Custom Humidity Override |
+| `garden/dryer1/cmd/timer` | **Subscribe** | Integer string (`0`–`1440`) | Countdown duration in minutes |
 
-Telemetry -> Temp: 40.1 °C | Humid: 19.8 % RH | State: MAINTENANCE / HOLDING
-Control   -> Heater PWM: 0 (0%) | Fan PWM: 64 (25%)
+### Telemetry JSON Payload Example:
+```json
+{
+  "temperature": 45.2,
+  "humidity": 14.8,
+  "is_active": true,
+  "filament": "PLA",
+  "target_temp": 45.0,
+  "target_humidity": 15.0,
+  "timer_duration": 240,
+  "timer_remaining": 182,
+  "heater_power": 42,
+  "fan_power": 100,
+  "state": "drying"
+}
 ```
 
-### 🚦 Visual LED Status Indicators
-* **Rapid Flash (5Hz)**: Critical startup sensor initialization failure.
-* **Moderate Flash (2.5Hz)**: Runtime sensor read failure (wires loose, sensor disconnected).
-* **Slow Pulse (1Hz)**: Active Dehumidifying / Heating Phase (`STATE_HEATING_UP`).
-* **Short periodic blink (every 3s)**: Maintenance Mode (`STATE_MAINTAINING`), system is healthy.
+---
+
+## 🚦 Status LED Indicators
+* **Standby Mode**: Single very short blip every 5 seconds.
+* **Active Drying (`STATE_HEATING_UP`)**: Slow breathing pulse (1Hz).
+* **Maintaining Mode (`STATE_MAINTAINING`)**: Steady short blip every 2 seconds.
+* **Critical Lockout/Fault**: Extremely rapid flashing (5Hz).
