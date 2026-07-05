@@ -14,7 +14,8 @@
 // =============================================================================
 // Uncomment ONLY ONE of the following modes to match your actual hardware setup:
 
-#define SENSOR_MODE_BME280          // [RECOMMENDED] BME280 measures both Temp & Humidity via I2C
+// #define SENSOR_MODE_BME280          // [RECOMMENDED] BME280 measures both Temp & Humidity via I2C
+#define SENSOR_MODE_SHT30           // SHT30/SHT31/SHT35 measures both Temp & Humidity via I2C
 // #define SENSOR_MODE_BMP280_DHT22    // BMP280 (I2C) for Temp + DHT22 (Digital) for Humidity
 // #define SENSOR_MODE_DHT22_ONLY      // DHT22 measures both Temp & Humidity (Digital)
 

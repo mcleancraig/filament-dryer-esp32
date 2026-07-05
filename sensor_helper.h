@@ -13,6 +13,8 @@
 #if defined(SENSOR_MODE_BME280)
   #include <Adafruit_Sensor.h>
   #include <Adafruit_BME280.h>
+#elif defined(SENSOR_MODE_SHT30)
+  #include <Adafruit_SHT31.h>
 #elif defined(SENSOR_MODE_BMP280_DHT22)
   #include <Adafruit_Sensor.h>
   #include <Adafruit_BMP280.h>
@@ -38,6 +40,9 @@ inline bool hasHeaterExhaustSensor = false;
 #if defined(SENSOR_MODE_BME280)
   inline Adafruit_BME280 bmeChamber;
   inline Adafruit_BME280 bmeHeater;
+#elif defined(SENSOR_MODE_SHT30)
+  inline Adafruit_SHT31 shtChamber;
+  inline Adafruit_SHT31 shtHeater;
 #elif defined(SENSOR_MODE_BMP280_DHT22)
   inline Adafruit_BMP280 bmpChamber;
   inline Adafruit_BMP280 bmpHeater;
@@ -91,6 +96,29 @@ inline bool initSensors() {
       success = false;
     } else {
       Serial.println("[SUCCESS] Single Chamber BME280 found at 0x76.");
+    }
+  }
+
+#elif defined(SENSOR_MODE_SHT30)
+  Serial.println("Attempting to connect to SHT30D (Chamber Ambient @ 0x44)...");
+  bool chamberFound = shtChamber.begin(0x44);
+  if (chamberFound) {
+    Serial.println("[SUCCESS] Chamber SHT30D found at 0x44.");
+    Serial.println("Checking for secondary Heater SHT30D (Heater Exhaust @ 0x45)...");
+    if (shtHeater.begin(0x45)) {
+      Serial.println("[SUCCESS] Heater SHT30D found at 0x45. Dual-sensor mode enabled!");
+      hasHeaterExhaustSensor = true;
+    } else {
+      Serial.println("[NOTE] No Heater SHT30D found at 0x45. Single-sensor fallback active.");
+    }
+  } else {
+    Serial.println("[WARNING] Could not find Chamber SHT30D at 0x44! Trying fallback to 0x45...");
+    chamberFound = shtChamber.begin(0x45);
+    if (!chamberFound) {
+      Serial.println("[ERROR] No SHT30D sensor found at all!");
+      success = false;
+    } else {
+      Serial.println("[SUCCESS] Single Chamber SHT30D found at 0x45.");
     }
   }
 
@@ -161,6 +189,32 @@ inline SensorData readSensors() {
     float tHeater = bmeHeater.readTemperature();
     if (isnan(tHeater) || tHeater < -40.0f || tHeater > 85.0f) {
       Serial.println("[WARNING] Heater BME280 read failed or returned out-of-bounds!");
+    } else {
+      data.heaterExhaustTemp = tHeater;
+      data.heaterExhaustValid = true;
+    }
+  } else {
+    // Single sensor fallback: duplicate Chamber Ambient measurements
+    data.heaterExhaustTemp = data.temperature;
+    data.heaterExhaustValid = data.isValid;
+  }
+
+#elif defined(SENSOR_MODE_SHT30)
+  float tChamber = shtChamber.readTemperature();
+  float hChamber = shtChamber.readHumidity();
+
+  if (isnan(tChamber) || isnan(hChamber) || tChamber < -40.0f || tChamber > 125.0f || hChamber < 0.0f || hChamber > 100.0f) {
+    Serial.println("[WARNING] Chamber SHT30D read failed or returned out-of-bounds!");
+  } else {
+    data.temperature = tChamber;
+    data.humidity = hChamber;
+    data.isValid = true;
+  }
+
+  if (hasHeaterExhaustSensor) {
+    float tHeater = shtHeater.readTemperature();
+    if (isnan(tHeater) || tHeater < -40.0f || tHeater > 125.0f) {
+      Serial.println("[WARNING] Heater SHT30D read failed or returned out-of-bounds!");
     } else {
       data.heaterExhaustTemp = tHeater;
       data.heaterExhaustValid = true;
