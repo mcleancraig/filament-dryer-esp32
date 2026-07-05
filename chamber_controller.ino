@@ -15,6 +15,9 @@
 #include "config.h"
 #include "sensor_helper.h"
 
+#define FIRMWARE_VERSION "0.0.1-b01"
+
+
 // =============================================================================
 // GLOBAL INSTANCES & CONFIGURATION
 // =============================================================================
@@ -440,10 +443,11 @@ void publishMqttDiscovery() {
   snprintf(devUid, sizeof(devUid), "dryer_%d", devCfg.unitNumber);
 
   // Common Device Definition
-  char devInfo[256];
+  char devInfo[320];
   snprintf(devInfo, sizeof(devInfo), 
-    "\"device\":{\"identifiers\":[\"%s\"],\"name\":\"Filament Dryer %d\",\"model\":\"ESP32-C6 Chamber Controller\",\"manufacturer\":\"Waveshare\"}",
-    devUid, devCfg.unitNumber);
+    "\"device\":{\"identifiers\":[\"%s\"],\"name\":\"Filament Dryer %d\",\"model\":\"ESP32-C6 Chamber Controller\",\"manufacturer\":\"Waveshare\",\"sw_version\":\"%s\"}",
+    devUid, devCfg.unitNumber, FIRMWARE_VERSION);
+
 
   // 1. Temperature Sensor Discovery
   snprintf(discTopic, sizeof(discTopic), "homeassistant/sensor/%s/%s_temp/config", devUid, devUid);
@@ -464,6 +468,14 @@ void publishMqttDiscovery() {
     snprintf(discTopic, sizeof(discTopic), "homeassistant/sensor/%s/%s_exhaust_temp/config", devUid, devUid);
     mqttClient.publish(discTopic, "", true);
   }
+
+  // 1c. Firmware Version Sensor Discovery
+  snprintf(discTopic, sizeof(discTopic), "homeassistant/sensor/%s/%s_fw/config", devUid, devUid);
+  snprintf(payload, sizeof(payload), 
+    "{\"name\":\"Firmware Version\",\"unique_id\":\"%s_fw\",\"state_topic\":\"%s\",\"value_template\":\"{{ value_json.fw_version }}\",\"icon\":\"mdi:chip\",%s}",
+    devUid, STATE_TOPIC, devInfo);
+  mqttClient.publish(discTopic, payload, true);
+
 
 
   // 2. Humidity Sensor Discovery
@@ -716,6 +728,8 @@ void publishTelemetry(const SensorData &env) {
   doc["humidity"] = env.isValid ? (double)env.humidity : 0.0;
   doc["heater_exhaust_temp"] = env.heaterExhaustValid ? (double)env.heaterExhaustTemp : 0.0;
   doc["exhaust_sensor_present"] = hasHeaterExhaustSensor;
+  doc["fw_version"] = FIRMWARE_VERSION;
+
 
   // Active drying metrics
   doc["is_active"] = isSystemActive;
@@ -765,7 +779,7 @@ void setup() {
   delay(1500); // Wait for terminal on ESP32-C6 USB-C
 
   Serial.println("\n==============================================");
-  Serial.println("  ESP32-C6-Zero Smart Filament Dryer Controller");
+  Serial.printf("  ESP32-C6-Zero Smart Filament Dryer v%s\n", FIRMWARE_VERSION);
   Serial.println("==============================================\n");
 
   pinMode(PIN_HEATER_GATE, OUTPUT);
